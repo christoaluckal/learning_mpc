@@ -17,6 +17,7 @@ parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--controller', default="PID", 
 		help="Select the controller for the robot.\nAvailable:\n1) MPC\n2) PID\nDefault: PID")
 parser.add_argument('--proc_id', type=int, default=0)
+parser.add_argument('--viz', action='store_true',default=False)
 
 args = parser.parse_args()
 controller_name = 'MPC'
@@ -35,14 +36,15 @@ wps_y = np.random.randint(50, VIEW_W-50, (num_wps,1))
 for w in range(wps_x.shape[0]):
 	way_points.append([wps_x[w,0],wps_y[w,0]])
  
-# def add_waypoint(event, x, y, flags, param):
-#     global way_points
-#     if event == cv2.EVENT_LBUTTONDOWN:
-#         way_points.append([x, y])
-#     if event == cv2.EVENT_RBUTTONDOWN:
-#         way_points.pop()
+def add_waypoint(event, x, y, flags, param):
+    global way_points
+    if event == cv2.EVENT_LBUTTONDOWN:
+        way_points.append([x, y])
+    if event == cv2.EVENT_RBUTTONDOWN:
+        way_points.pop()
 
-# draw = Draw(VIEW_W, VIEW_H, window_name = "Canvas", mouse_callback = add_waypoint)
+if args.viz:
+	draw = Draw(VIEW_W, VIEW_H, window_name = "Canvas", mouse_callback = add_waypoint)
 
 car = Car(50, 50)
 
@@ -59,19 +61,22 @@ current_idx = 0
 linear_v = 0
 angular_v = 0
 car_path_points = []
+k = None
 while True:
-	# draw.clear()
-	# draw.add_text("Press the right click to place a way point, press the left click to remove a way point", 
-	# 				color = (0, 0, 0), fontScale = 0.5, thickness = 1, org = (5, 20))
-	# if len(way_points)>0:
-	# 	draw.draw_path(way_points, color = (200, 200, 200), thickness = 1)
+	if args.viz:
+		draw.clear()
+		draw.add_text("Press the right click to place a way point, press the left click to remove a way point", 
+						color = (0, 0, 0), fontScale = 0.5, thickness = 1, org = (5, 20))
+		if len(way_points)>0:
+			draw.draw_path(way_points, color = (200, 200, 200), thickness = 1)
 
-	# if len(car_path_points)>0:
-	# 	draw.draw_path(car_path_points, color = (255, 0, 0), thickness = 1, dotted = True)
+		if len(car_path_points)>0:
+			draw.draw_path(car_path_points, color = (255, 0, 0), thickness = 1, dotted = True)
 
-	# draw.draw(car.get_points(), color = (255, 0, 0), thickness = 1)
+		draw.draw(car.get_points(), color = (255, 0, 0), thickness = 1)
 	
-
+	if args.viz:
+		k = draw.show()
 	# k = draw.show()
 
 	x, _ = car.get_state()
@@ -96,7 +101,7 @@ while True:
    
    
 			linear_v += np.random.uniform(-2.5,2.5)
-			angular_v += np.random.uniform(-1.5,1.5)
+			angular_v += np.random.uniform(-0.3,0.3)
 			# print(f"Optimized Control Inputs: {linear_v}, {angular_v}")
 			# time.sleep(1)
 		
@@ -108,6 +113,7 @@ while True:
 		angular_v = 0
 
 	data_queue.append(car.last_row+[linear_v,angular_v])
+	# print(data_queue[-1])
 	car.update(linear_v, angular_v,DELTA_T)
 
 	if len(data_queue) % 1000 == 0:
@@ -118,5 +124,5 @@ while True:
 	if len(data_queue) == data_queue.maxlen:
 		break
 
-	# if k == ord("q"):
-	# 	break
+	if k == ord("q"):
+		break

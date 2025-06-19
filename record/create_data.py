@@ -15,11 +15,10 @@ for i in range(n):
 data_array = np.array(fin_data)
 
 
-data_array[:,[0,1]] /= 700
-data_array[:,2] /= 2*np.pi
-data_array[:,[3,5]] /= 12.5
-data_array[:,[4,6]] /= 4.5
-
+# data_array[:,[0,1]] /= 700
+# data_array[:,2] /= 2*np.pi
+# data_array[:,[3,5]] /= 12.5
+# data_array[:,[4,6]] /= 4.5
 
 state_idx = [0,1,2,3,4]
 control_idx = [5,6]
@@ -71,9 +70,9 @@ import torch.optim as optim
 class SimpleNN(nn.Module):
     def __init__(self, input_size, output_size):
         super(SimpleNN, self).__init__()
-        self.fc1 = nn.Linear(input_size, 64)
-        self.fc2 = nn.Linear(64, 32)
-        self.fc3 = nn.Linear(32, output_size)
+        self.fc1 = nn.Linear(input_size, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -81,6 +80,7 @@ class SimpleNN(nn.Module):
         x = self.fc3(x)
         return x
     
+from tqdm import tqdm
 def train_nn(X_train, Y_train, X_test, Y_test, epochs=1000, batch_size=32):
     input_size = X_train.shape[1]
     output_size = Y_train.shape[1]
@@ -92,18 +92,29 @@ def train_nn(X_train, Y_train, X_test, Y_test, epochs=1000, batch_size=32):
     X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
     Y_train_tensor = torch.tensor(Y_train, dtype=torch.float32)
     
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         model.train()
-        optimizer.zero_grad()
+        for i in range(0, len(X_train_tensor), batch_size):
+            X_batch = X_train_tensor[i:i+batch_size]
+            Y_batch = Y_train_tensor[i:i+batch_size]
+            optimizer.zero_grad()
+            outputs = model(X_batch)
+            loss = criterion(outputs, Y_batch)
+            loss.backward()
+            optimizer.step()
         
-        outputs = model(X_train_tensor)
-        loss = criterion(outputs, Y_train_tensor)
+        # model.train()
+        # optimizer.zero_grad()
         
-        loss.backward()
-        optimizer.step()
+        # outputs = model(X_train_tensor)
+        # loss = criterion(outputs, Y_train_tensor)
         
-        if (epoch+1) % 100 == 0:
-            print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
+        # loss.backward()
+        # optimizer.step()
+        
+            if (epoch+1) % 100 == 0 and i % 50 == 0:
+                print(f'Epoch [{epoch+1}/{epochs}], Batch [{i//batch_size+1}], Loss: {loss.item():.4f}')
+                # print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
     
     model.eval()
     with torch.no_grad():
@@ -116,7 +127,7 @@ def train_nn(X_train, Y_train, X_test, Y_test, epochs=1000, batch_size=32):
     return model
 
 # Train the neural network
-nn_model = train_nn(X_train, Y_train, X_test, Y_test, epochs=1000, batch_size=32)
+nn_model = train_nn(X_train, Y_train, X_test, Y_test, epochs=1000, batch_size=1024)
 
 # Test the neural network
 nn_preds = nn_model(torch.tensor(X_test, dtype=torch.float32)).detach().numpy()
@@ -126,3 +137,5 @@ print(f"NN MSE:", mean_squared_error(Y_test, nn_preds))
 for x, y, z in zip(X_test[random_idxs], Y_test[random_idxs], nn_preds[random_idxs]):
     print(f"In:{x}, True:{y}, Pred:{z} Error:{np.linalg.norm(y-z)}")
     # print(y-z)
+
+torch.save(nn_model.state_dict(), '../learned/nn_model.pth')
